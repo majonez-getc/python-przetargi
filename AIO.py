@@ -18,8 +18,10 @@ from tauron_script import fetch_tauron_results
 def update_progress(progress_var, current, total):
     progress_var.set((current + 1) / total * 100)
 
-# Zmiana na ThreadPoolExecutor dla równoczesnych zadań
-def run_search(keywords, selected_sources, progress_var, on_finish):
+def update_progress_thread(progress_var, root, current, total):
+    root.after(0, update_progress, progress_var, current, total)
+
+def run_search(keywords, selected_sources, progress_var, on_finish, root):
     try:
         all_results = []
         source_functions = {
@@ -39,26 +41,23 @@ def run_search(keywords, selected_sources, progress_var, on_finish):
         results_per_source = {}
 
         with ThreadPoolExecutor(max_workers=len(selected_sources)) as executor:
-            # Używamy map, aby wykonać funkcje równolegle
             futures = {
                 executor.submit(source_functions[source], keywords): source for source in selected_sources
             }
-
-            # Zbieramy wyniki i aktualizujemy pasek postępu
             for idx, future in enumerate(futures):
                 source_results = future.result()
                 results_per_source[futures[future]] = source_results
                 all_results.extend(source_results)
-                update_progress(progress_var, idx, total_sources)
+                update_progress_thread(progress_var, root, idx, total_sources)
 
-        # Zapisz wyniki do pliku CSV
-        with open("combined_results.csv", "w", newline="", encoding="utf-8") as csvfile:
+        import datetime
+        filename = f"combined_results_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(["Tytuł", "Link", "Źródło"])
             for source, results in results_per_source.items():
                 for result in results:
                     writer.writerow([result[0], result[1], source])
-
         on_finish(all_results)
 
     except Exception as e:
@@ -66,7 +65,8 @@ def run_search(keywords, selected_sources, progress_var, on_finish):
     finally:
         progress_var.set(0)  # Resetowanie paska postępu po zakończeniu
 
-def main(Test_mode = False):
+
+def main():
     root = tk.Tk()
     root.title("Przetargi Search")
 
@@ -94,10 +94,12 @@ def main(Test_mode = False):
     row += 1
 
     # Funkcja uruchamiająca wyszukiwanie
-    def on_search(Test_mode = False):
+    def on_search(Test_mode=False):
         if Test_mode:
-            keywords = ['usługi']
-            selected_sources = ["biznespolska"]
+            print("Test mode")
+            keywords = ['wykonanie']  # Można zmienić na dowolne dane
+            # selected_sources = ["biznespolska"]
+            selected_sources = ["orlen"]
         else:
             keywords = [kw.strip() for kw in keywords_entry.get().split(',') if kw.strip()]
             selected_sources = [source for source, var in source_vars.items() if var.get()]
@@ -127,14 +129,14 @@ def main(Test_mode = False):
 
         progress_var.set(0)
         threading.Thread(
-            target=run_search, args=(keywords, selected_sources, progress_var, display_results), daemon=True
+            target=run_search, args=(keywords, selected_sources, progress_var, display_results, root), daemon=True
         ).start()
 
     # Przycisk wyszukiwania
-    search_button = ttk.Button(root, text="Szukaj", command=on_search(Test_mode))
+    search_button = ttk.Button(root, text="Szukaj", command=lambda: on_search(Test_mode=True))
     search_button.grid(row=row, column=0, columnspan=2, pady=(10, 0))
 
     root.mainloop()
 
 if __name__ == "__main__":
-    main(Test_mode=True)
+    main()

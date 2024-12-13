@@ -10,6 +10,20 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\combined_results_20241213_123833.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\combined_results_20241213_130609.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
       </map>
     </option>
   </component>
