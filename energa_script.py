@@ -24,7 +24,7 @@ def fetch_energa_results(keywords):
     # Chrome settings
     chrome_options = Options()
     # Uncomment the next line to enable headless mode
-    # chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     
@@ -92,8 +92,7 @@ def fetch_energa_results(keywords):
                 
                 # Check if any keyword is in the title
                 if title and contains_keywords(title, keywords):
-                    print(f"{idx}. Title: {title}, Link: {link}")
-                    results.append([title.strip(), link])
+                    results.append([title.strip(), link, "ENERGA"])
             except Exception as e:
                 # It's possible that the row doesn't contain an 'a.name' element, skip such rows
                 pass

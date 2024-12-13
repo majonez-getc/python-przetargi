@@ -1,13 +1,13 @@
-# tauron_script.py
-
 import time
-import csv
+from datetime import datetime
+
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import WebDriverWait
+
 
 def setup_driver():
     chrome_options = Options()
@@ -18,6 +18,7 @@ def setup_driver():
     driver = webdriver.Chrome(options=chrome_options)
     return driver
 
+
 def get_total_pages(driver):
     try:
         paginator = driver.find_element(By.CLASS_NAME, "mp_paginator")
@@ -26,6 +27,7 @@ def get_total_pages(driver):
     except Exception as e:
         print(f"Error while getting total pages: {e}")
         return 1  # Default to one page if an error occurred
+
 
 def fetch_tauron_results(keywords):
     driver = setup_driver()
@@ -40,7 +42,7 @@ def fetch_tauron_results(keywords):
             EC.presence_of_element_located((By.NAME, "GD_pagesize"))
         ))
         select.select_by_value("100")
-        
+
         # Wait for results to load
         WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CLASS_NAME, "dataRow"))
@@ -53,38 +55,45 @@ def fetch_tauron_results(keywords):
         total_pages = get_total_pages(driver)
         print(f"Total pages found: {total_pages}")
 
+        # Get current date for comparison
+        current_date = datetime.now()
+
         # Iterate through all pages
         for page in range(total_pages):
-            print("TAURON")
             print(f"Processing page {page + 1} of {total_pages}")
 
             # Get all table rows on the current page
-            rows = driver.find_elements(By.XPATH, "//tbody/tr/td[2]")
+            rows = driver.find_elements(By.XPATH, "//tbody/tr")
             print(f"Found {len(rows)} rows on the current page.")  # Should print the number of rows found
 
-            for i in range(len(rows)):
+            for row in rows:
                 try:
-                    # Refresh the list of rows because navigating to a new page causes earlier references to become stale
-                    rows = driver.find_elements(By.XPATH, "//tbody/tr/td[2]")
-                    row = rows[i]
-                    
-                    title = row.text
-                    if title not in unique_titles and any(keyword.strip().lower() in title.lower() for keyword in keywords):
-                        
-                        # Click on the row to go to details
-                        driver.execute_script("arguments[0].click();", row)
-                        time.sleep(1)  # Wait for the new page to load
-                        
-                        # Get the current page link
-                        link = driver.current_url
-                        results.append([title, link, 'tauron'])
+                    # Extract the ID from the <tr> element's ID attribute
+                    row_id = row.get_attribute("id")
+                    # Construct the link using the ID
+                    link = f"https://swoz.tauron.pl/platform/demand/notice/public/{row_id}/details"
 
-                        # Add title to unique_titles to prevent duplicates
-                        unique_titles.add(title)
+                    # Extract the deadline date from the corresponding <td> element with class "date-time"
+                    date_elements = row.find_elements(By.CLASS_NAME, "date-time")
+                    if len(date_elements) < 2:
+                        continue  # Skip rows that don't have the date-time element
 
-                        # Return to the results page
-                        driver.back()  # Use the "Back" button
-                        time.sleep(1)  # Wait for the results page to load
+                    # Parse the end date (second date-time element)
+                    end_date_str = date_elements[1].text
+                    try:
+                        end_date = datetime.strptime(end_date_str, "%Y-%m-%d %H:%M")
+                    except ValueError:
+                        # Skip rows with invalid date format
+                        continue
+
+                    # Check if the end date is in the future
+                    if end_date > current_date:
+                        # Extract the title and compare with keywords
+                        title_element = row.find_elements(By.CLASS_NAME, "text.long")
+                        if title_element:
+                            title = title_element[0].text
+                            if any(keyword.strip().lower() in title.lower() for keyword in keywords):
+                                results.append([title, link, 'tauron'])
 
                 except Exception as e:
                     print(f"Error processing row: {e}")
@@ -102,9 +111,15 @@ def fetch_tauron_results(keywords):
                     break
 
         return results
-        
+
     finally:
         driver.quit()
 
+
 if __name__ == "__main__":
-    pass  # Do nothing when the script is run directly
+    keywords = ['przetarg', 'usługi']  # example keywords to filter by
+    results = fetch_tauron_results(keywords)
+
+    # Print or save the results
+    for result in results:
+        print(result)

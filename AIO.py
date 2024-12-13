@@ -35,11 +35,11 @@ def run_search(keywords, selected_sources, progress_var, on_finish):
             "biznespolska": fetch_biznespolska_results,
             "energa": fetch_energa_results,
             "oneplace": fetch_oneplace_results,
-            "orlen": fetch_orlen_results,
             "pern": fetch_pern_results,
             "pkp": fetch_pkp_results,
             "pse": fetch_pse_results,
             "tauron": fetch_tauron_results,
+            "orlen": fetch_orlen_results,
         }
 
         total_sources = len(selected_sources)
@@ -112,8 +112,8 @@ def main():
     def on_search(Test_mode=False):
         if Test_mode:
             print("Test mode")
-            keywords = ['budowa']  # Można zmienić na dowolne dane
-            selected_sources = ["biparp"]
+            keywords = ['usł', 'bud']  # Można zmienić na dowolne dane
+            selected_sources = ["tauron"]
         else:
             keywords = [kw.strip() for kw in keywords_entry.get().split(',') if kw.strip()]
             selected_sources = [source for source, var in source_vars.items() if var.get()]
