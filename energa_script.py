@@ -85,6 +85,7 @@ def fetch_energa_results(keywords):
         
         for idx, row in enumerate(rows, start=1):
             try:
+                print("ENERGA")
                 title_element = row.find_element(By.CSS_SELECTOR, 'a.name')
                 title = title_element.text
                 link = title_element.get_attribute('href')

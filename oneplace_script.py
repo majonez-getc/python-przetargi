@@ -34,6 +34,7 @@ def fetch_oneplace_results(keywords):
             articles = driver.find_elements(By.CSS_SELECTOR, "div.row.tiles article")
 
             for article in articles:
+                print("ONEPLACE")
                 title_element = article.find_element(By.CSS_SELECTOR, "h3.title")
                 title = title_element.text.strip()
                 link = article.find_element(By.CSS_SELECTOR, "a").get_attribute("href")

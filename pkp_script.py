@@ -67,6 +67,7 @@ def fetch_pkp_results(keywords):
         # Collect titles and rows
         data = []
         for row in rows:
+            print("PKP")
             title_element = row.find_element(By.CSS_SELECTOR, 'td.long.col-1')
             title = title_element.text
             if title and contains_keywords(title, keywords):

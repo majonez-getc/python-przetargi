@@ -55,6 +55,7 @@ def fetch_tauron_results(keywords):
 
         # Iterate through all pages
         for page in range(total_pages):
+            print("TAURON")
             print(f"Processing page {page + 1} of {total_pages}")
 
             # Get all table rows on the current page

@@ -1,8 +1,8 @@
 import csv
 import tkinter as tk
 from tkinter import ttk, messagebox
-import threading
-from concurrent.futures import ThreadPoolExecutor
+import os
+import time
 from amwsinevia_script import fetch_amwsinevia_results
 from biparp_script import fetch_biparp_results
 from biznespolska_script import fetch_biznespolska_results
@@ -18,10 +18,15 @@ from tauron_script import fetch_tauron_results
 def update_progress(progress_var, current, total):
     progress_var.set((current + 1) / total * 100)
 
-def update_progress_thread(progress_var, root, current, total):
-    root.after(0, update_progress, progress_var, current, total)
+# Funkcja do mierzenia czasu wykonania
+def measure_time(func, *args, **kwargs):
+    start_time = time.time()  # Zaczynamy mierzyć czas
+    result = func(*args, **kwargs)  # Wywołanie funkcji
+    end_time = time.time()  # Zatrzymujemy czas
+    execution_time = end_time - start_time  # Czas wykonania funkcji
+    return result, execution_time
 
-def run_search(keywords, selected_sources, progress_var, on_finish, root):
+def run_search(keywords, selected_sources, progress_var, on_finish):
     try:
         all_results = []
         source_functions = {
@@ -39,25 +44,35 @@ def run_search(keywords, selected_sources, progress_var, on_finish, root):
 
         total_sources = len(selected_sources)
         results_per_source = {}
+        seen_links = set()  # Zbiór do śledzenia unikalnych linków
+        source_times = {}  # Słownik przechowujący czasy wykonania poszczególnych źródeł
 
-        with ThreadPoolExecutor(max_workers=len(selected_sources)) as executor:
-            futures = {
-                executor.submit(source_functions[source], keywords): source for source in selected_sources
-            }
-            for idx, future in enumerate(futures):
-                source_results = future.result()
-                results_per_source[futures[future]] = source_results
-                all_results.extend(source_results)
-                update_progress_thread(progress_var, root, idx, total_sources)
+        # Przetwarzanie wyników źródeł jeden po drugim
+        for idx, source in enumerate(selected_sources):
+            # Mierzymy czas wykonania każdej funkcji
+            source_results, execution_time = measure_time(source_functions[source], keywords)
+            source_times[source] = execution_time  # Zapisujemy czas wykonania
+            results_per_source[source] = source_results
+            for result in source_results:
+                title, link, source_name = result
+                if link not in seen_links:  # Sprawdzamy, czy link już się pojawił
+                    seen_links.add(link)  # Dodajemy link do zbioru
+                    all_results.append(result)
 
-        import datetime
-        filename = f"combined_results_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            update_progress(progress_var, idx, total_sources)
+
+        # Zapisanie wyników do pliku CSV
+        filename = "combined_results.csv"
         with open(filename, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(["Tytuł", "Link", "Źródło"])
-            for source, results in results_per_source.items():
-                for result in results:
-                    writer.writerow([result[0], result[1], source])
+            for result in all_results:
+                writer.writerow(result)
+
+        # Wyświetlamy czasy wykonania poszczególnych źródeł
+        for source, exec_time in source_times.items():
+            print(f"Źródło {source} wykonało się w {exec_time:.2f} sekund.")
+
         on_finish(all_results)
 
     except Exception as e:
@@ -97,9 +112,8 @@ def main():
     def on_search(Test_mode=False):
         if Test_mode:
             print("Test mode")
-            keywords = ['wykonanie']  # Można zmienić na dowolne dane
-            # selected_sources = ["biznespolska"]
-            selected_sources = ["orlen"]
+            keywords = ['budowa']  # Można zmienić na dowolne dane
+            selected_sources = ["biparp"]
         else:
             keywords = [kw.strip() for kw in keywords_entry.get().split(',') if kw.strip()]
             selected_sources = [source for source, var in source_vars.items() if var.get()]
@@ -128,15 +142,23 @@ def main():
             close_button.pack(pady=5)
 
         progress_var.set(0)
-        threading.Thread(
-            target=run_search, args=(keywords, selected_sources, progress_var, display_results, root), daemon=True
-        ).start()
+
+        # Uruchomienie wyszukiwania w głównym wątku
+        run_search(keywords, selected_sources, progress_var, display_results)
 
     # Przycisk wyszukiwania
     search_button = ttk.Button(root, text="Szukaj", command=lambda: on_search(Test_mode=True))
     search_button.grid(row=row, column=0, columnspan=2, pady=(10, 0))
 
+    # Zatrzymanie wątków podczas zamykania okna - FORCOWNE ZAMKNIĘCIE
+    def on_close():
+        os._exit(1)  # Natychmiastowe zakończenie programu
+
+    root.protocol("WM_DELETE_WINDOW", on_close)  # Przechwycenie zamykania okna
+
     root.mainloop()
 
 if __name__ == "__main__":
+    if (os.path.exists("combined_results.csv")):
+        os.remove("combined_results.csv")
     main()

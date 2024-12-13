@@ -8,7 +8,7 @@ import time
 
 def setup_driver():
     chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("--headless")  # Run the browser in headless mode
+    # chrome_options.add_argument("--headless")  # Run the browser in headless mode
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     driver = webdriver.Chrome(options=chrome_options)
@@ -28,6 +28,7 @@ def fetch_pern_results(keywords):
             
             rows = driver.find_elements(By.CSS_SELECTOR, "tbody.ui-datatable-data tr")
             for row in rows:
+                print("PERN")
                 cells = row.find_elements(By.TAG_NAME, "td")
                 if cells:
                     title = cells[1].text

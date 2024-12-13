@@ -8,7 +8,7 @@ from selenium.webdriver.chrome.options import Options
 
 def setup_driver():
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Enables headless mode for the browser
+    # chrome_options.add_argument("--headless")  # Enables headless mode for the browser
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--window-size=1920,1080")
@@ -26,7 +26,7 @@ def process_page(driver, keywords):
         link = title_element.get_attribute("href")
 
         if any(keyword.lower() in title.lower() for keyword in keywords):
-            results1.append([title, link])
+            results1.append([title, link, "BIPARP"])
 
     return results1
 
@@ -37,6 +37,7 @@ def fetch_biparp_results(keywords):
     results = []
 
     while True:
+        print("BIARP")
         results.extend(process_page(driver, keywords))
 
         try:

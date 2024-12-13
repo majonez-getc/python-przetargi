@@ -10,7 +10,7 @@ import time
 def setup_driver():
     chrome_options = Options()
     # Uncomment the next line to run the browser in headless mode
-    chrome_options.add_argument("--headless")
+    # chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     driver = webdriver.Chrome(options=chrome_options)
@@ -29,6 +29,7 @@ def fetch_biznespolska_results(keywords):
     page_number = 1
 
     while True:
+        print("Biznespolska")
         print(f"Processing page {page_number}")
         try:
             # Wait for the table to load

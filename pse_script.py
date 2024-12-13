@@ -45,6 +45,7 @@ def fetch_pse_results(keywords):
         last_first_row_text = None
 
         while True:
+            print("PSE")
             print(f"Processing page {page}")
 
             # Get table rows
