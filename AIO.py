@@ -1,7 +1,8 @@
-import csv
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import os
+import csv
+import pandas as pd
 import threading
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
@@ -15,6 +16,7 @@ from pern_script import fetch_pern_results
 from pkp_script import fetch_pkp_results
 from pse_script import fetch_pse_results
 from tauron_script import fetch_tauron_results
+
 
 # Kolorowe logowanie
 class LogColors:
@@ -95,9 +97,23 @@ def save_results_to_csv(results, filename="combined_results.csv"):
         log_with_color("ERROR", f"Błąd przy zapisywaniu wyników: {e}")
 
 
+# Funkcja zapisująca wyniki do pliku Excel
+def save_results_to_excel(results, filename="combined_results.xlsx"):
+    try:
+        df = pd.DataFrame(results, columns=["Tytuł", "Link", "Źródło"])
+        df.to_excel(filename, index=False, engine='openpyxl')
+        log_with_color("INFO", "Wyniki zapisane do pliku Excel.")
+    except Exception as e:
+        log_with_color("ERROR", f"Błąd przy zapisywaniu wyników: {e}")
+
+
 # Funkcja wyświetlająca wyniki w nowym oknie
-def display_results(results):
-    save_results_to_csv(results)  # Zapisz wyniki do pliku CSV
+def display_results(results, export_format):
+    if export_format == "CSV":
+        save_results_to_csv(results)  # Zapisz wyniki do pliku CSV
+    elif export_format == "Excel":
+        save_results_to_excel(results)  # Zapisz wyniki do pliku Excel
+
     results_window = tk.Toplevel()
     results_window.title("Wyniki wyszukiwania")
 
@@ -137,12 +153,20 @@ def main():
         checkbox.grid(row=row, column=0, columnspan=2, sticky=tk.W)
         row += 1
 
+    # Opcje eksportu
+    export_var = tk.StringVar(value="CSV")  # Domyślny format to CSV
+    export_csv_radio = ttk.Radiobutton(root, text="CSV", variable=export_var, value="CSV")
+    export_csv_radio.grid(row=row, column=0, sticky=tk.W)
+    export_excel_radio = ttk.Radiobutton(root, text="Excel", variable=export_var, value="Excel")
+    export_excel_radio.grid(row=row, column=1, sticky=tk.W)
+    row += 1
+
     # Funkcja uruchamiająca wyszukiwanie
     def on_search(Test_mode=False):
         if Test_mode:
             log_with_color("INFO", "Tryb testowy włączony.")
             keywords = ['usł', 'bud']  # Można zmienić na dowolne dane
-            selected_sources = ["orlen"]
+            selected_sources = ["amwsinevia"]
         else:
             keywords = [kw.strip() for kw in keywords_entry.get().split(',') if kw.strip()]
             selected_sources = [source for source, var in source_vars.items() if var.get()]
@@ -157,7 +181,8 @@ def main():
         result_queue = Queue()  # Kolejka do przekazywania wyników
 
         # Uruchomienie wyszukiwania w osobnym wątku
-        search_thread = threading.Thread(target=run_search_parallel, args=(keywords, selected_sources, result_queue, display_results))
+        search_thread = threading.Thread(target=run_search_parallel, args=(
+        keywords, selected_sources, result_queue, lambda results: display_results(results, export_var.get())))
         search_thread.start()
 
     # Przycisk wyszukiwania
@@ -171,6 +196,7 @@ def main():
     root.protocol("WM_DELETE_WINDOW", on_close)  # Przechwycenie zamykania okna
 
     root.mainloop()
+
 
 if __name__ == "__main__":
     if os.path.exists("combined_results.csv"):
