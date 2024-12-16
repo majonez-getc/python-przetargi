@@ -1,15 +1,29 @@
-# biparp_script.py
-
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
+# Kolory ANSI do terminala
+class LogColors:
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    RESET = '\033[0m'
+
+# Funkcja do kolorowego logowania
+def log_with_color(level, msg):
+    if level == "INFO":
+        print(f"{LogColors.GREEN}{msg}{LogColors.RESET}")
+    elif level == "WARNING":
+        print(f"{LogColors.YELLOW}{msg}{LogColors.RESET}")
+    elif level == "ERROR":
+        print(f"{LogColors.RED}{msg}{LogColors.RESET}")
 
 def setup_driver():
     """
     Ustawia konfigurację przeglądarki Chrome, tworzy i zwraca instancję przeglądarki.
     """
+    log_with_color("INFO", "[BIPARP] Konfiguracja przeglądarki...")
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Włącza tryb headless dla przeglądarki (nie wyświetla interfejsu)
     chrome_options.add_argument("--disable-gpu")  # Wyłącza użycie GPU (przydatne w headless mode)
@@ -17,8 +31,8 @@ def setup_driver():
     chrome_options.add_argument("--window-size=1920,1080")  # Ustawia rozdzielczość okna przeglądarki (do rozwiązywania problemów z responsywnością strony)
 
     driver = webdriver.Chrome(options=chrome_options)  # Tworzy instancję przeglądarki z wcześniej ustawionymi opcjami
+    log_with_color("INFO", "[BIPARP] Przeglądarka uruchomiona.")
     return driver
-
 
 def process_page(driver, keywords):
     """
@@ -39,9 +53,9 @@ def process_page(driver, keywords):
         if any(keyword.lower() in title.lower() for keyword in keywords):
             # Jeśli tak, dodajemy wynik do listy
             results1.append([title, link, "BIPARP"])
+            log_with_color("INFO", f"[BIPARP] Znaleziono wynik: {title}")
 
     return results1
-
 
 def fetch_biparp_results(keywords):
     """
@@ -49,13 +63,14 @@ def fetch_biparp_results(keywords):
     Pobiera dane ze wszystkich stron, przechodzi przez kolejne strony aukcji,
     i zwraca wyniki pasujące do podanych słów kluczowych.
     """
+    log_with_color("INFO", "[BIPARP] Rozpoczynanie przetwarzania strony.")
     driver = setup_driver()  # Uruchamiamy przeglądarkę
     driver.get("https://arp.bip.gov.pl/articles/index/zamowienia-strefowe/page:1")  # Ładujemy pierwszą stronę
 
     results = []  # Lista, która będzie przechowywać ostateczne wyniki
-
+    page = 1
     while True:
-        print("BIARP")  # Drukowanie komunikatu w konsoli informującego o przetwarzaniu strony
+        log_with_color("INFO", f"[BIPARP] Przetwarzanie strony {page}...")  # Informacja o przetwarzaniu strony
         results.extend(process_page(driver, keywords))  # Przetwarzamy stronę i dodajemy wyniki do listy
 
         try:
@@ -63,15 +78,16 @@ def fetch_biparp_results(keywords):
             next_button = driver.find_element(By.CSS_SELECTOR, "a.next")
             driver.execute_script("arguments[0].click();", next_button)  # Klikamy przycisk "Next"
             time.sleep(2)  # Czekamy 2 sekundy na załadowanie nowej strony
-        except:
-            # Jeśli nie udało się znaleźć przycisku "Next", kończymy pętlę (brak kolejnych stron)
+            page += 1  # Zwiększamy numer strony
+        except Exception as e:
+            log_with_color("INFO", "[BIPARP] Koniec stron - brak przycisku 'Next'.")
             break
 
     driver.quit()  # Zamykamy przeglądarkę po zakończeniu przetwarzania
+    log_with_color("INFO", "[BIPARP] Przeglądarka zamknięta.")
 
     # Zwracamy wyniki do głównego programu
     return results
 
-
 if __name__ == "__main__":
-    pass  # Jeśli skrypt jest uruchamiany bezpośrednio, nie wykonuje żadnej akcji (brak słów kluczowych do przetworzenia)
+    pass

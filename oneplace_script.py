@@ -1,4 +1,4 @@
-import csv
+#ONEPLACE
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -6,118 +6,100 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 
+# Klasa dla kolorowych logów
+class LogColors:
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    RESET = '\033[0m'
+
+
+def log_with_color(level, msg):
+    """Funkcja do logowania z kolorami."""
+    if level == "INFO":
+        print(f"{LogColors.GREEN}{msg}{LogColors.RESET}")
+    elif level == "WARNING":
+        print(f"{LogColors.YELLOW}{msg}{LogColors.RESET}")
+    elif level == "ERROR":
+        print(f"{LogColors.RED}{msg}{LogColors.RESET}")
+
+
 def setup_driver():
     """
-    Funkcja do konfiguracji sterownika przeglądarki.
-    Uruchamia Chrome w trybie headless oraz ustawia odpowiednie opcje, takie jak
-    wyłączenie GPU oraz wyłączenie sandboxa. Tryb headless jest wyłączony w tym przypadku,
-    ale można go włączyć, odkomentowując odpowiednią linię.
+    Konfiguruje sterownik przeglądarki Chrome.
 
     Zwraca:
-        driver (webdriver.Chrome): skonfigurowany obiekt sterownika Chrome.
+        webdriver.Chrome: Sterownik Chrome z odpowiednimi opcjami.
     """
     chrome_options = Options()
-    # Włącz tryb headless, jeśli wymagane (wykomentuj, jeśli nie chcesz używać headless)
-    chrome_options.add_argument("--headless")
-
-    # Wyłączenie GPU oraz sandboxa dla większej stabilności
+    chrome_options.add_argument("--headless")  # Tryb headless (odkomentuj, aby włączyć widoczność przeglądarki)
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-    # Inicjalizacja sterownika Chrome z podanymi opcjami
     driver = webdriver.Chrome(options=chrome_options)
-
+    log_with_color("INFO", "[ONEPLACE] Sterownik Chrome skonfigurowany.")
     return driver
 
 
 def fetch_oneplace_results(keywords):
     """
-    Funkcja pobierająca oferty z serwisu OnePlace na podstawie słów kluczowych.
-    Filtruje wyniki, aby zawierały tylko te oferty, które zawierają przynajmniej jedno
-    z podanych słów kluczowych. Skrypt automatycznie przechodzi przez strony, pobierając
-    kolejne oferty.
+    Pobiera oferty z OnePlace, filtrując je na podstawie słów kluczowych.
 
     Args:
-        keywords (list): Lista słów kluczowych do wyszukiwania w tytule ofert.
+        keywords (list[str]): Lista słów kluczowych do filtrowania ofert.
 
-    Zwraca:
-        results (list): Lista znalezionych wyników, gdzie każdy wynik jest listą zawierającą
-                        tytuł oferty, link oraz źródło ("ONEPLACE").
+    Returns:
+        list: Wyniki w postaci listy [tytuł, link, źródło].
     """
-    # URL strony z ofertami
     url = "https://oneplace.marketplanet.pl/zapytania-ofertowe-przetargi/-/rfp/cat/11035/elektroenergetyka?_7_WAR_organizationnoticeportlet_cur=1"
-
-    # Przekształcanie słów kluczowych na małe litery oraz usunięcie nadmiarowych spacji
+    driver = setup_driver()
+    results = []
     keywords = set(keyword.strip().lower() for keyword in keywords)
 
-    # Inicjalizacja sterownika przeglądarki
-    driver = setup_driver()
-    driver.get(url)
+    try:
+        driver.get(url)
+        log_with_color("INFO", f"[ONEPLACE] Otworzono stronę {url}")
 
-    # Lista na wyniki wyszukiwania
-    results = []
-
-    while True:
-        try:
-            # Czekanie, aż strony ładują się wystarczająco, aby znaleźć oferty
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div.row.tiles"))
-            )
-
-            # Pobieranie wszystkich ofert na bieżącej stronie
-            articles = driver.find_elements(By.CSS_SELECTOR, "div.row.tiles article")
-
-            # Iterowanie przez wszystkie oferty na stronie
-            for article in articles:
-                # Pobieranie tytułu oferty
-                title_element = article.find_element(By.CSS_SELECTOR, "h3.title")
-                title = title_element.text.strip().lower()  # Upewnij się, że tytuł jest w małych literach
-                # Pobieranie linku do oferty
-                link = article.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-
-                # Sprawdzanie, czy tytuł zawiera którekolwiek z podanych słów kluczowych
-                if any(keyword in title for keyword in keywords):
-                    # Dodanie oferty do wyników, jeśli pasuje
-                    results.append([title, link, 'ONEPLACE'])
-                    print(f"Found: {title} - {link}")
-
-            # Próba przejścia do następnej strony, jeśli przycisk "Next" jest dostępny
+        while True:
             try:
-                next_button = driver.find_element(By.CSS_SELECTOR, "li.next a")
-                # Kliknięcie przycisku "Next" w celu przejścia do następnej strony
-                next_button.click()
-                # Czekanie na załadowanie nowych ofert po przejściu na nową stronę
+                # Poczekaj na załadowanie ofert
                 WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "div.row.tiles"))
                 )
+                log_with_color("INFO", "[ONEPLACE] Załadowano oferty na bieżącej stronie.")
+
+                # Pobieranie ofert
+                articles = driver.find_elements(By.CSS_SELECTOR, "div.row.tiles article")
+                for article in articles:
+                    title_element = article.find_element(By.CSS_SELECTOR, "h3.title")
+                    title = title_element.text.strip().lower()
+                    link = article.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
+
+                    # Filtracja na podstawie słów kluczowych
+                    if any(keyword in title for keyword in keywords):
+                        results.append([title, link, 'ONEPLACE'])
+
+                # Przejdź do następnej strony, jeśli jest dostępna
+                try:
+                    next_button = driver.find_element(By.CSS_SELECTOR, "li.next a")
+                    next_button.click()
+                    WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "div.row.tiles"))
+                    )
+                    log_with_color("INFO", "[ONEPLACE] Przejście do następnej strony.")
+                except Exception as e:
+                    log_with_color("WARNING", "[ONEPLACE] Nie znaleziono przycisku 'Next' lub brak kolejnych stron.")
+                    break
             except Exception as e:
-                # Jeśli nie ma już przycisku "Next" lub wystąpił błąd, kończymy pętlę
-                print(f"End of pages or error: {e}")
+                log_with_color("ERROR", f"[ONEPLACE] Błąd podczas przetwarzania strony: {e}")
                 break
-
-        except Exception as e:
-            # Obsługuje wszelkie inne błędy (np. timeout, problem z ładowaniem strony)
-            print(f"Error occurred: {e}")
-            break
-
-    # Zakończenie sesji przeglądarki po zakończeniu zbierania danych
-    driver.quit()
+    finally:
+        driver.quit()
+        log_with_color("INFO", "[ONEPLACE] Zamknięto sterownik przeglądarki.")
 
     return results
 
 
 if __name__ == "__main__":
-    # Przykładowe słowa kluczowe do wyszukiwania w tytułach ofert
-    keywords = ["elektroenergetyka", "przetargi", "oferta"]
-
-    # Wywołanie funkcji pobierającej oferty z serwisu OnePlace
-    results = fetch_oneplace_results(keywords)
-
-    # Zapisanie wyników do pliku CSV
-    with open('oneplace_results.csv', 'w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        # Nagłówki w pliku CSV
-        writer.writerow(["Title", "Link", "Source"])
-        # Zapisanie każdego wyniku do pliku CSV
-        for result in results:
-            writer.writerow(result)
+    pass

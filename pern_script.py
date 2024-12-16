@@ -1,86 +1,105 @@
-# pern_script.py
+import time
 
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import time
+from selenium.webdriver.support.ui import WebDriverWait
+
+
+# Klasa dla kolorowych logów
+class LogColors:
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    RESET = '\033[0m'
+
+
+def log_with_color(level, msg):
+    """Funkcja do logowania z kolorami."""
+    if level == "INFO":
+        print(f"{LogColors.GREEN}{msg}{LogColors.RESET}")
+    elif level == "WARNING":
+        print(f"{LogColors.YELLOW}{msg}{LogColors.RESET}")
+    elif level == "ERROR":
+        print(f"{LogColors.RED}{msg}{LogColors.RESET}")
 
 
 def setup_driver():
-    """Funkcja do konfiguracji i uruchomienia przeglądarki Chrome z odpowiednimi opcjami."""
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("--headless")
+    """
+    Konfiguruje sterownik przeglądarki Chrome.
+
+    Zwraca:
+        webdriver.Chrome: Sterownik Chrome z odpowiednimi opcjami.
+    """
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Tryb headless (odkomentuj, aby włączyć widoczność przeglądarki)
+    chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    # Inicjalizacja WebDrivera
+
     driver = webdriver.Chrome(options=chrome_options)
+    log_with_color("INFO", "[PERN] Sterownik Chrome skonfigurowany.")
     return driver
 
 
 def fetch_pern_results(keywords):
     """
-    Funkcja przeszukuje stronę PERN w celu znalezienia ofert pasujących do słów kluczowych.
+    Pobiera wyniki z platformy PERN na podstawie podanych słów kluczowych.
 
-    Parametry:
-        keywords (list): lista słów kluczowych, które mają być wyszukane w tytule ogłoszeń.
+    Args:
+        keywords (list[str]): Lista słów kluczowych do wyszukiwania.
 
-    Zwraca:
-        results (list): lista pasujących wyników, każdy wynik to lista [tytuł, link, źródło].
+    Returns:
+        list: Lista wyników w formacie [tytuł, link, źródło].
     """
+    url = "https://platformazakupowa.pern.pl/adverts/NonAdvertActs.xhtml"
     driver = setup_driver()
-    driver.get("https://platformazakupowa.pern.pl/adverts/NonAdvertActs.xhtml")
+    driver.get(url)
+    log_with_color("INFO", f"[PERN] Otworzono stronę: {url}")
 
     results = []
 
-    while True:
-        try:
-            # Czekamy, aż na stronie pojawią się wyniki
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "tbody.ui-datatable-data tr"))
-            )
-
-            # Pobieramy wszystkie wiersze wyników
-            rows = driver.find_elements(By.CSS_SELECTOR, "tbody.ui-datatable-data tr")
-            for row in rows:
-                cells = row.find_elements(By.TAG_NAME, "td")
-                if cells:
-                    title = cells[1].text  # Tytuł ogłoszenia jest w drugiej kolumnie
-                    for keyword in keywords:
-                        # Sprawdzamy, czy tytuł zawiera jedno ze słów kluczowych (niezależnie od wielkości liter)
-                        if keyword.strip().lower() in title.lower():
-                            # Pobieramy link do szczegółów ogłoszenia
-                            details_link = cells[-1].find_element(By.TAG_NAME, "a").get_attribute("href")
-                            results.append([title, details_link, 'pern'])
-                            break  # Jeśli jedno słowo kluczowe pasuje, przechodzimy do następnego ogłoszenia
-
-            # Przechodzimy do następnej strony, jeśli przycisk "Next" jest dostępny
+    try:
+        while True:
             try:
+                # Oczekiwanie na załadowanie wierszy tabeli
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "tbody.ui-datatable-data tr"))
+                )
+                rows = driver.find_elements(By.CSS_SELECTOR, "tbody.ui-datatable-data tr")
+
+                # Przetwarzanie każdego wiersza
+                for row in rows:
+                    cells = row.find_elements(By.TAG_NAME, "td")
+                    if cells:
+                        title = cells[1].text  # Tytuł ogłoszenia znajduje się w drugiej kolumnie
+                        for keyword in keywords:
+                            if keyword.lower() in title.lower():
+                                # Pobieramy link do szczegółów ogłoszenia
+                                details_link = cells[-1].find_element(By.TAG_NAME, "a").get_attribute("href")
+                                results.append([title, details_link, 'PERN'])
+                                log_with_color("INFO", f"[PERN] Dodano wynik: {title}")
+                                break
+
+                # Przejście do kolejnej strony
                 next_button = driver.find_element(By.CSS_SELECTOR, "span.ui-paginator-next")
-                # Sprawdzamy, czy przycisk nie jest wyłączony
                 if "ui-state-disabled" in next_button.get_attribute("class"):
-                    break  # Jeśli przycisk jest wyłączony, kończymy przeszukiwanie
-                # Klikamy przycisk "Next"
+                    log_with_color("WARNING", "[PERN] Brak kolejnej strony. Kończenie przeszukiwania.")
+                    break
                 driver.execute_script("arguments[0].click();", next_button)
-                time.sleep(2)  # Czekamy na załadowanie nowej strony
+                log_with_color("INFO", "[PERN] Przejście do kolejnej strony.")
+                time.sleep(2)
+
             except Exception as e:
-                print(f"No more pages or an error occurred: {e}")
-                break  # Jeśli nie ma już następnej strony lub wystąpił błąd, kończymy
+                break
 
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            break  # Jeśli wystąpił błąd w trakcie przetwarzania strony, kończymy
+    finally:
+        driver.quit()
+        log_with_color("INFO", "[PERN] Przeglądarka została zamknięta.")
 
-    # Zamykanie przeglądarki po zakończeniu przeszukiwania
-    driver.quit()
-
-    # Zwracamy zebrane wyniki
     return results
 
 
 if __name__ == "__main__":
-    # Przykładowe użycie funkcji fetch_pern_results
-    keywords = ["gas", "oil", "pipe"]  # Lista słów kluczowych do wyszukiwania
-    results = fetch_pern_results(keywords)
-    for result in results:
-        print(f"Title: {result[0]}, Link: {result[1]}, Source: {result[2]}")
+    pass

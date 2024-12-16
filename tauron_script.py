@@ -8,6 +8,24 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support.ui import Select
 
 
+# Klasa do kolorowego logowania
+class LogColors:
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    RESET = '\033[0m'
+
+
+def log_with_color(level, msg):
+    """Funkcja do logowania z kolorami."""
+    if level == "INFO":
+        print(f"{LogColors.GREEN}{msg}{LogColors.RESET}")
+    elif level == "WARNING":
+        print(f"{LogColors.YELLOW}{msg}{LogColors.RESET}")
+    elif level == "ERROR":
+        print(f"{LogColors.RED}{msg}{LogColors.RESET}")
+
+
 # Funkcja do ustawienia sterownika przeglądarki
 def setup_driver():
     # Ustawienia dla Chrome - opcje sterownika
@@ -18,6 +36,7 @@ def setup_driver():
 
     # Utworzenie instancji sterownika Chrome z powyższymi opcjami
     driver = webdriver.Chrome(options=chrome_options)
+    log_with_color("INFO", "[TAURON] Sterownik Chrome skonfigurowany.")
     return driver
 
 
@@ -29,10 +48,11 @@ def get_total_pages(driver):
         # Szukanie wszystkich linków stron (linki do stron są w tagach <a> wewnątrz <li>)
         pages = paginator.find_elements(By.CSS_SELECTOR, "li a.anchor")
         # Zwracamy numer przedostatniej strony, ponieważ ostatni element to przycisk "Następny"
+        log_with_color("INFO", "[TAURON] Liczba stron wyników: " + str(len(pages)-1))
         return int(pages[-2].text)
     except Exception as e:
         # Jeśli wystąpi błąd, domyślnie uznajemy, że jest tylko jedna strona
-        print(f"Error while getting total pages: {e}")
+        log_with_color("ERROR", f"[TAURON] Błąd podczas pobierania liczby stron: {e}")
         return 1
 
 
@@ -40,7 +60,7 @@ def get_total_pages(driver):
 def process_page(driver, current_date, keywords, results):
     # Wyszukiwanie wszystkich wierszy tabeli
     rows = driver.find_elements(By.XPATH, "//tbody/tr")
-    print(f"Found {len(rows)} rows on the current page.")
+    log_with_color("INFO", f"[TAURON] Znaleziono {len(rows)} wierszy na bieżącej stronie.")
 
     for row in rows:
         try:
@@ -63,7 +83,7 @@ def process_page(driver, current_date, keywords, results):
 
             # Jeśli data zakończenia jest przeszła w stosunku do obecnej daty, przerywamy przetwarzanie
             if end_date <= current_date:
-                print(f"Terminy w wierszu {row_id} są nieaktualne. Zakończono przetwarzanie.")
+                log_with_color("WARNING", f"[TAURON] Termin w wierszu {row_id} jest przeszły. Zakończono przetwarzanie.")
                 return results, True  # Zwracamy wyniki oraz sygnał o zakończeniu
 
             # Sprawdzanie, czy tytuł oferty pasuje do słów kluczowych
@@ -73,10 +93,11 @@ def process_page(driver, current_date, keywords, results):
                 # Jeśli którykolwiek ze słów kluczowych znajduje się w tytule, dodajemy ofertę do wyników
                 if any(keyword.strip().lower() in title.lower() for keyword in keywords):
                     results.append([title, link, 'tauron'])
+                    log_with_color("INFO", f"[TAURON] Dodano wynik: {title}")
 
         except Exception as e:
             # Obsługa błędów dla pojedynczych wierszy
-            print(f"Error processing row: {e}")
+            log_with_color("ERROR", f"[TAURON] Błąd podczas przetwarzania wiersza: {e}")
 
     return results, False  # Jeśli nie napotkano daty przeszłej, kontynuujemy przetwarzanie
 
@@ -108,11 +129,11 @@ def fetch_tauron_results(keywords):
 
         # Pobranie całkowitej liczby stron wyników
         total_pages = get_total_pages(driver)
-        print(f"Total pages found: {total_pages}")
+        log_with_color("INFO", f"[TAURON] Całkowita liczba stron wyników: {total_pages}")
 
         # Przetwarzanie każdej strony
         for page in range(total_pages):
-            print(f"Processing page {page + 1} of {total_pages}")
+            log_with_color("INFO", f"[TAURON] Przetwarzanie strony {page + 1} z {total_pages}")
             results, stop_processing = process_page(driver, current_date, keywords, results)
 
             # Jeśli napotkano ofertę z przeszłą datą, przerywamy przetwarzanie
@@ -128,14 +149,16 @@ def fetch_tauron_results(keywords):
                     )
                     driver.execute_script("arguments[0].click();", next_button)  # Kliknięcie na przycisk "Następny"
                     time.sleep(3)  # Krótkie oczekiwanie na załadowanie nowej strony
+                    log_with_color("INFO", "[TAURON] Przeszliśmy do kolejnej strony.")
                 except Exception as e:
-                    print(f"An error occurred while moving to the next page: {e}")
+                    log_with_color("ERROR", f"[TAURON] Błąd podczas przechodzenia do następnej strony: {e}")
                     break
 
         return results
 
     finally:
         driver.quit()  # Zamknięcie przeglądarki po zakończeniu
+        log_with_color("INFO", "[TAURON] Przeglądarka została zamknięta.")
 
 
 # Główna część skryptu
