@@ -14,6 +14,8 @@ from pkp_script import fetch_pkp_results
 from pse_script import fetch_pse_results
 from tauron_script import fetch_tauron_results
 
+
+# version 1.0
 # Funkcja do zaktualizowania postępu
 def update_progress(progress_var, current, total):
     progress_var.set((current + 1) / total * 100)
@@ -112,8 +114,8 @@ def main():
     def on_search(Test_mode=False):
         if Test_mode:
             print("Test mode")
-            keywords = ['usł', 'bud']  # Można zmienić na dowolne dane
-            selected_sources = ["tauron"]
+            keywords = ['usł','bud']  # Można zmienić na dowolne dane
+            selected_sources = ["orlen"]
         else:
             keywords = [kw.strip() for kw in keywords_entry.get().split(',') if kw.strip()]
             selected_sources = [source for source, var in source_vars.items() if var.get()]
@@ -147,7 +149,7 @@ def main():
         run_search(keywords, selected_sources, progress_var, display_results)
 
     # Przycisk wyszukiwania
-    search_button = ttk.Button(root, text="Szukaj", command=lambda: on_search(Test_mode=True))
+    search_button = ttk.Button(root, text="Szukaj", command=lambda: on_search(Test_mode=False))
     search_button.grid(row=row, column=0, columnspan=2, pady=(10, 0))
 
     # Zatrzymanie wątków podczas zamykania okna - FORCOWNE ZAMKNIĘCIE
